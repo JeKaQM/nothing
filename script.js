@@ -1,5 +1,12 @@
 // Detect mobile/touch device
 const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+// Debug logging for mobile
+console.log('Touch device:', isTouchDevice);
+console.log('Safari:', isSafari);
+console.log('iOS:', isIOS);
 
 // ============================================
 // HELPER FUNCTIONS (defined first)
@@ -169,83 +176,114 @@ let mobileTapCount = 0;
 let mobileTapTimeout;
 let mobileLastTap = 0;
 
-if (isTouchDevice) {
-    // Prevent zoom on multi-touch
-    document.addEventListener('touchstart', (e) => {
-        if (e.touches.length > 1) {
-            e.preventDefault();
-        }
-    }, { passive: false });
-
-    // Handle all taps - prevent zoom but track triple tap
-    document.addEventListener('touchend', (e) => {
-        const now = Date.now();
-        const timeSinceLastTap = now - mobileLastTap;
-        
-        // Track taps for triple-tap easter egg
-        if (timeSinceLastTap < 400) {
-            mobileTapCount++;
-        } else {
-            mobileTapCount = 1;
-        }
-        
-        clearTimeout(mobileTapTimeout);
-        mobileTapTimeout = setTimeout(() => { mobileTapCount = 0; }, 500);
-        
-        // Triple tap = party mode!
-        if (mobileTapCount >= 3) {
-            mobileTapCount = 0;
-            activatePartyMode();
-        }
-        
-        // Prevent double-tap zoom
-        if (timeSinceLastTap < 300) {
-            e.preventDefault();
-        }
-        
-        mobileLastTap = now;
-    }, { passive: false });
-
-    // Prevent pinch zoom
-    document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
-    document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
-    document.addEventListener('gestureend', (e) => e.preventDefault(), { passive: false });
+// Triple tap detection - works on all mobile browsers including Safari
+document.addEventListener('touchstart', (e) => {
+    // Prevent multi-touch zoom
+    if (e.touches.length > 1) {
+        e.preventDefault();
+        return;
+    }
     
-    document.addEventListener('touchmove', (e) => {
-        if (e.touches.length > 1) {
-            e.preventDefault();
-        }
-    }, { passive: false });
-}
+    const now = Date.now();
+    const timeSinceLastTap = now - mobileLastTap;
+    
+    // Track taps for triple-tap easter egg
+    if (timeSinceLastTap < 400) {
+        mobileTapCount++;
+        console.log('Tap count:', mobileTapCount); // Debug
+    } else {
+        mobileTapCount = 1;
+    }
+    
+    clearTimeout(mobileTapTimeout);
+    mobileTapTimeout = setTimeout(() => { mobileTapCount = 0; }, 500);
+    
+    // Triple tap = party mode!
+    if (mobileTapCount >= 3) {
+        console.log('Triple tap triggered!'); // Debug
+        mobileTapCount = 0;
+        activatePartyMode();
+    }
+    
+    mobileLastTap = now;
+}, { passive: false });
+
+// Prevent double-tap zoom on Safari
+document.addEventListener('touchend', (e) => {
+    const now = Date.now();
+    if (now - mobileLastTap < 300) {
+        e.preventDefault();
+    }
+}, { passive: false });
+
+// Prevent pinch zoom - Safari specific
+document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
+document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
+document.addEventListener('gestureend', (e) => e.preventDefault(), { passive: false });
+
+document.addEventListener('touchmove', (e) => {
+    if (e.touches.length > 1) {
+        e.preventDefault();
+    }
+}, { passive: false });
 
 // ============================================
 // MOBILE: Long press easter egg
 // ============================================
 
 let longPressTimer;
+let longPressStartTime = 0;
 const nothingWord = document.querySelector('.nothing');
 
-if (nothingWord && isTouchDevice) {
+if (nothingWord) {
     nothingWord.addEventListener('touchstart', (e) => {
+        longPressStartTime = Date.now();
+        console.log('Long press started'); // Debug
         longPressTimer = setTimeout(() => {
+            console.log('Long press triggered!'); // Debug
             revealTruth();
-        }, 1000);
+        }, 800); // Reduced to 800ms for easier trigger
     }, { passive: true });
     
     nothingWord.addEventListener('touchend', () => {
+        console.log('Touch ended after', Date.now() - longPressStartTime, 'ms'); // Debug
         clearTimeout(longPressTimer);
     });
     
     nothingWord.addEventListener('touchmove', () => {
         clearTimeout(longPressTimer);
     });
+    
+    nothingWord.addEventListener('touchcancel', () => {
+        clearTimeout(longPressTimer);
+    });
 }
 
 // ============================================
-// MOBILE: Shake easter egg
+// MOBILE: Shake easter egg (requires permission on iOS 13+)
 // ============================================
 
-if (window.DeviceMotionEvent && isTouchDevice) {
+if (window.DeviceMotionEvent) {
+    // iOS 13+ requires permission
+    if (typeof DeviceMotionEvent.requestPermission === 'function') {
+        // We'll request permission on first tap
+        document.body.addEventListener('touchstart', function requestMotion() {
+            DeviceMotionEvent.requestPermission()
+                .then(response => {
+                    if (response === 'granted') {
+                        enableShakeDetection();
+                    }
+                })
+                .catch(console.error);
+            document.body.removeEventListener('touchstart', requestMotion);
+        }, { once: true });
+    } else {
+        // Non-iOS or older iOS
+        enableShakeDetection();
+    }
+}
+
+function enableShakeDetection() {
     let lastShake = 0;
     let shakeCount = 0;
     
@@ -255,21 +293,22 @@ if (window.DeviceMotionEvent && isTouchDevice) {
         
         const total = Math.abs(acceleration.x || 0) + Math.abs(acceleration.y || 0) + Math.abs(acceleration.z || 0);
         
-        if (total > 35) {
+        if (total > 30) {
             const now = Date.now();
-            if (now - lastShake > 400) {
+            if (now - lastShake > 300) {
                 shakeCount++;
+                console.log('Shake count:', shakeCount); // Debug
                 lastShake = now;
                 
                 if (shakeCount >= 3) {
+                    console.log('Shake triggered!'); // Debug
                     shakeCount = 0;
                     activatePartyMode();
                 }
+                
+                setTimeout(() => { shakeCount = 0; }, 1500);
             }
         }
-        
-        // Reset shake count after 2 seconds of no shaking
-        setTimeout(() => { shakeCount = 0; }, 2000);
     });
 }
 
@@ -285,10 +324,10 @@ if (!isTouchDevice) {
     });
 }
 
-// Mobile sparkles on tap
-if (isTouchDevice) {
-    document.body.addEventListener('touchstart', (e) => {
-        const touch = e.touches[0];
+// Mobile sparkles on tap - always enabled
+document.body.addEventListener('touchstart', (e) => {
+    const touch = e.touches[0];
+    if (touch) {
         for (let i = 0; i < 3; i++) {
             setTimeout(() => {
                 createSparkle(
@@ -297,8 +336,8 @@ if (isTouchDevice) {
                 );
             }, i * 30);
         }
-    }, { passive: true });
-}
+    }
+}, { passive: true });
 
 // ============================================
 // Click effect on title words
