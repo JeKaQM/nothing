@@ -1,0 +1,12 @@
+{
+  "name": "nothing-ai",
+  "version": "1.0.0",
+  "description": "Does absolutely nothing. But does it with style.",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve ."
+  },
+  "keywords": ["nothing", "ai", "joke"],
+  "author": "",
+  "license": "MIT"
+}
