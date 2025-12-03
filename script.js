@@ -1,102 +1,13 @@
 // Detect mobile/touch device
 const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
-// Triple tap counter for easter egg (needs to be global for the zoom handler to access)
-let mobileTapCount = 0;
-let mobileTapTimeout;
-let mobileLastTap = 0;
+// ============================================
+// HELPER FUNCTIONS (defined first)
+// ============================================
 
-// Prevent ALL zoom behaviors on mobile
-if (isTouchDevice) {
-    // Prevent zoom on multi-touch
-    document.addEventListener('touchstart', (e) => {
-        if (e.touches.length > 1) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-    }, { passive: false });
-
-    // Prevent double-tap zoom BUT track triple taps for easter egg
-    document.addEventListener('touchend', (e) => {
-        const now = Date.now();
-        const timeSinceLastTap = now - mobileLastTap;
-        
-        // Track taps for triple-tap easter egg
-        if (timeSinceLastTap < 500) {
-            mobileTapCount++;
-            if (mobileTapCount >= 3) {
-                mobileTapCount = 0;
-                // Trigger party mode easter egg
-                if (typeof activatePartyMode === 'function') {
-                    activatePartyMode();
-                }
-            }
-        } else {
-            mobileTapCount = 1;
-        }
-        
-        clearTimeout(mobileTapTimeout);
-        mobileTapTimeout = setTimeout(() => mobileTapCount = 0, 600);
-        
-        // Prevent double-tap zoom (but allow our triple tap)
-        if (timeSinceLastTap <= 300 && mobileTapCount < 3) {
-            e.preventDefault();
-        }
-        
-        mobileLastTap = now;
-    }, { passive: false });
-
-    // Prevent pinch zoom (iOS Safari)
-    document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
-    document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
-    document.addEventListener('gestureend', (e) => e.preventDefault(), { passive: false });
-
-    // Prevent touchmove zoom
-    document.addEventListener('touchmove', (e) => {
-        if (e.touches.length > 1) {
-            e.preventDefault();
-        }
-    }, { passive: false });
-
-    // Reset any accidental zoom on orientation change or resize
-    window.addEventListener('resize', () => {
-        document.body.style.zoom = 1;
-    });
-
-    // Force viewport reset
-    const resetViewport = () => {
-        const viewport = document.querySelector('meta[name="viewport"]');
-        if (viewport) {
-            viewport.content = 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
-        }
-    };
-    resetViewport();
-    window.addEventListener('orientationchange', resetViewport);
-}
-
-// Add some interactive sparkle effects on mouse move (desktop only)
-if (!isTouchDevice) {
-    document.addEventListener('mousemove', (e) => {
-        if (Math.random() > 0.95) {
-            createSparkle(e.clientX, e.clientY);
-        }
-    });
-}
-
-// Touch sparkle effect for mobile (separate from zoom prevention)
-if (isTouchDevice) {
-    document.body.addEventListener('touchstart', (e) => {
-        if (e.target.closest('.word')) return; // Let word handler deal with it
-        const touch = e.touches[0];
-        for (let i = 0; i < 5; i++) {
-            setTimeout(() => {
-                createSparkle(
-                    touch.clientX + (Math.random() - 0.5) * 50,
-                    touch.clientY + (Math.random() - 0.5) * 50
-                );
-            }, i * 50);
-        }
-    }, { passive: true });
+function getRandomColor() {
+    const colors = ['#ff006e', '#00f5d4', '#00bbf9', '#9b5de5', '#f15bb5', '#fee440'];
+    return colors[Math.floor(Math.random() * colors.length)];
 }
 
 function createSparkle(x, y) {
@@ -124,110 +35,39 @@ function createSparkle(x, y) {
     }).onfinish = () => sparkle.remove();
 }
 
-function getRandomColor() {
-    const colors = ['#ff006e', '#00f5d4', '#00bbf9', '#9b5de5', '#f15bb5', '#fee440'];
-    return colors[Math.floor(Math.random() * colors.length)];
+function createConfetti() {
+    const confetti = document.createElement('div');
+    const colors = ['#ff006e', '#00f5d4', '#00bbf9', '#9b5de5', '#f15bb5', '#fee440', '#ff0000', '#00ff00'];
+    confetti.style.cssText = `
+        position: fixed;
+        left: ${Math.random() * 100}vw;
+        top: -20px;
+        width: ${Math.random() * 10 + 5}px;
+        height: ${Math.random() * 10 + 5}px;
+        background: ${colors[Math.floor(Math.random() * colors.length)]};
+        pointer-events: none;
+        z-index: 9999;
+        border-radius: ${Math.random() > 0.5 ? '50%' : '0'};
+    `;
+    document.body.appendChild(confetti);
+
+    confetti.animate([
+        { transform: 'translateY(0) rotate(0deg)', opacity: 1 },
+        { transform: `translateY(100vh) rotate(${Math.random() * 720}deg)`, opacity: 0.8 }
+    ], {
+        duration: Math.random() * 2000 + 2000,
+        easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+    }).onfinish = () => confetti.remove();
 }
 
-// Click effect on the title
-document.querySelectorAll('.word').forEach(word => {
-    word.addEventListener('click', () => {
-        word.style.animation = 'none';
-        word.offsetHeight; // Trigger reflow
-        word.style.animation = '';
-        
-        // Burst of sparkles
-        const rect = word.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        
-        for (let i = 0; i < 20; i++) {
-            setTimeout(() => {
-                createSparkle(
-                    centerX + (Math.random() - 0.5) * rect.width,
-                    centerY + (Math.random() - 0.5) * rect.height
-                );
-            }, i * 30);
-        }
-    });
-});
-
-// 🥚 Mobile Easter Egg: Long press on "Nothing" text triggers the reveal
-let longPressTimer;
-let longPressTriggered = false;
-const nothingWord = document.querySelector('.nothing');
-if (nothingWord && isTouchDevice) {
-    nothingWord.addEventListener('touchstart', (e) => {
-        longPressTriggered = false;
-        longPressTimer = setTimeout(() => {
-            longPressTriggered = true;
-            revealTruth();
-            // Vibrate if available
-            if (navigator.vibrate) navigator.vibrate(50);
-        }, 1000); // Reduced to 1 second
-    }, { passive: true });
-    
-    nothingWord.addEventListener('touchend', (e) => {
-        clearTimeout(longPressTimer);
-        if (longPressTriggered) {
-            e.preventDefault();
-        }
-    });
-    
-    nothingWord.addEventListener('touchmove', () => {
-        clearTimeout(longPressTimer);
-    });
-}
-
-// 🥚 Mobile Easter Egg: Shake device to trigger party mode
-if (window.DeviceMotionEvent && isTouchDevice) {
-    let lastShake = 0;
-    let shakeCount = 0;
-    
-    window.addEventListener('devicemotion', (e) => {
-        const acceleration = e.accelerationIncludingGravity;
-        if (!acceleration) return;
-        
-        const totalAcceleration = Math.abs(acceleration.x) + Math.abs(acceleration.y) + Math.abs(acceleration.z);
-        
-        if (totalAcceleration > 30) {
-            const now = Date.now();
-            if (now - lastShake > 300) {
-                shakeCount++;
-                lastShake = now;
-                
-                if (shakeCount >= 3) {
-                    shakeCount = 0;
-                    activatePartyMode();
-                }
-                
-                setTimeout(() => shakeCount = 0, 2000);
-            }
-        }
-    });
-}
-
-// Console easter egg
-console.log('%c🤖 Nothing AI', 'font-size: 24px; font-weight: bold; background: linear-gradient(135deg, #00f5d4, #9b5de5); -webkit-background-clip: text; -webkit-text-fill-color: transparent;');
-console.log('%cDoes absolutely nothing. But does it with style. ✨', 'font-size: 14px; color: #888;');
-
-// 🥚 Konami Code Easter Egg
-const konamiCode = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
-let konamiIndex = 0;
-
-document.addEventListener('keydown', (e) => {
-    if (e.key === konamiCode[konamiIndex]) {
-        konamiIndex++;
-        if (konamiIndex === konamiCode.length) {
-            activatePartyMode();
-            konamiIndex = 0;
-        }
-    } else {
-        konamiIndex = 0;
-    }
-});
+// ============================================
+// EASTER EGG FUNCTIONS
+// ============================================
 
 function activatePartyMode() {
+    // Vibrate on mobile
+    if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+    
     document.body.classList.add('party-mode');
     
     // Show secret message
@@ -256,58 +96,6 @@ function activatePartyMode() {
         document.body.style.background = '';
     }, 5000);
 }
-
-function createConfetti() {
-    const confetti = document.createElement('div');
-    const colors = ['#ff006e', '#00f5d4', '#00bbf9', '#9b5de5', '#f15bb5', '#fee440', '#ff0000', '#00ff00'];
-    confetti.style.cssText = `
-        position: fixed;
-        left: ${Math.random() * 100}vw;
-        top: -20px;
-        width: ${Math.random() * 10 + 5}px;
-        height: ${Math.random() * 10 + 5}px;
-        background: ${colors[Math.floor(Math.random() * colors.length)]};
-        pointer-events: none;
-        z-index: 9999;
-        border-radius: ${Math.random() > 0.5 ? '50%' : '0'};
-    `;
-    document.body.appendChild(confetti);
-
-    confetti.animate([
-        { transform: 'translateY(0) rotate(0deg)', opacity: 1 },
-        { transform: `translateY(100vh) rotate(${Math.random() * 720}deg)`, opacity: 0.8 }
-    ], {
-        duration: Math.random() * 2000 + 2000,
-        easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
-    }).onfinish = () => confetti.remove();
-}
-
-// 🥚 Secret word easter egg - type "nothing"
-let typedWord = '';
-const nothingLetters = ['n', 'o', 't', 'h', 'i', 'n', 'g'];
-let nothingProgress = 0;
-
-document.addEventListener('keydown', (e) => {
-    if (e.key.length === 1) {
-        const key = e.key.toLowerCase();
-        
-        // Check if typing "nothing"
-        if (key === nothingLetters[nothingProgress]) {
-            nothingProgress++;
-            showAnticipation(nothingProgress);
-            
-            if (nothingProgress === nothingLetters.length) {
-                revealTruth();
-                nothingProgress = 0;
-            }
-        } else {
-            if (nothingProgress > 0) {
-                hideAnticipation();
-            }
-            nothingProgress = 0;
-        }
-    }
-});
 
 function showAnticipation(progress) {
     let existingHint = document.querySelector('.typing-hint');
@@ -343,6 +131,9 @@ function hideAnticipation() {
 function revealTruth() {
     hideAnticipation();
     
+    // Vibrate on mobile
+    if (navigator.vibrate) navigator.vibrate([50, 30, 50, 30, 100]);
+    
     // Drum roll effect
     const drumroll = document.createElement('div');
     drumroll.className = 'drumroll-overlay';
@@ -358,8 +149,229 @@ function revealTruth() {
     `;
     document.body.appendChild(drumroll);
     
+    // Tap to dismiss on mobile
+    drumroll.addEventListener('click', () => {
+        drumroll.classList.add('fade-out');
+        setTimeout(() => drumroll.remove(), 500);
+    });
+    
     setTimeout(() => {
         drumroll.classList.add('fade-out');
         setTimeout(() => drumroll.remove(), 1000);
     }, 6000);
 }
+
+// ============================================
+// MOBILE: Prevent zoom but allow easter eggs
+// ============================================
+
+let mobileTapCount = 0;
+let mobileTapTimeout;
+let mobileLastTap = 0;
+
+if (isTouchDevice) {
+    // Prevent zoom on multi-touch
+    document.addEventListener('touchstart', (e) => {
+        if (e.touches.length > 1) {
+            e.preventDefault();
+        }
+    }, { passive: false });
+
+    // Handle all taps - prevent zoom but track triple tap
+    document.addEventListener('touchend', (e) => {
+        const now = Date.now();
+        const timeSinceLastTap = now - mobileLastTap;
+        
+        // Track taps for triple-tap easter egg
+        if (timeSinceLastTap < 400) {
+            mobileTapCount++;
+        } else {
+            mobileTapCount = 1;
+        }
+        
+        clearTimeout(mobileTapTimeout);
+        mobileTapTimeout = setTimeout(() => { mobileTapCount = 0; }, 500);
+        
+        // Triple tap = party mode!
+        if (mobileTapCount >= 3) {
+            mobileTapCount = 0;
+            activatePartyMode();
+        }
+        
+        // Prevent double-tap zoom
+        if (timeSinceLastTap < 300) {
+            e.preventDefault();
+        }
+        
+        mobileLastTap = now;
+    }, { passive: false });
+
+    // Prevent pinch zoom
+    document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
+    document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
+    document.addEventListener('gestureend', (e) => e.preventDefault(), { passive: false });
+    
+    document.addEventListener('touchmove', (e) => {
+        if (e.touches.length > 1) {
+            e.preventDefault();
+        }
+    }, { passive: false });
+}
+
+// ============================================
+// MOBILE: Long press easter egg
+// ============================================
+
+let longPressTimer;
+const nothingWord = document.querySelector('.nothing');
+
+if (nothingWord && isTouchDevice) {
+    nothingWord.addEventListener('touchstart', (e) => {
+        longPressTimer = setTimeout(() => {
+            revealTruth();
+        }, 1000);
+    }, { passive: true });
+    
+    nothingWord.addEventListener('touchend', () => {
+        clearTimeout(longPressTimer);
+    });
+    
+    nothingWord.addEventListener('touchmove', () => {
+        clearTimeout(longPressTimer);
+    });
+}
+
+// ============================================
+// MOBILE: Shake easter egg
+// ============================================
+
+if (window.DeviceMotionEvent && isTouchDevice) {
+    let lastShake = 0;
+    let shakeCount = 0;
+    
+    window.addEventListener('devicemotion', (e) => {
+        const acceleration = e.accelerationIncludingGravity;
+        if (!acceleration) return;
+        
+        const total = Math.abs(acceleration.x || 0) + Math.abs(acceleration.y || 0) + Math.abs(acceleration.z || 0);
+        
+        if (total > 35) {
+            const now = Date.now();
+            if (now - lastShake > 400) {
+                shakeCount++;
+                lastShake = now;
+                
+                if (shakeCount >= 3) {
+                    shakeCount = 0;
+                    activatePartyMode();
+                }
+            }
+        }
+        
+        // Reset shake count after 2 seconds of no shaking
+        setTimeout(() => { shakeCount = 0; }, 2000);
+    });
+}
+
+// ============================================
+// DESKTOP: Sparkle effects
+// ============================================
+
+if (!isTouchDevice) {
+    document.addEventListener('mousemove', (e) => {
+        if (Math.random() > 0.95) {
+            createSparkle(e.clientX, e.clientY);
+        }
+    });
+}
+
+// Mobile sparkles on tap
+if (isTouchDevice) {
+    document.body.addEventListener('touchstart', (e) => {
+        const touch = e.touches[0];
+        for (let i = 0; i < 3; i++) {
+            setTimeout(() => {
+                createSparkle(
+                    touch.clientX + (Math.random() - 0.5) * 30,
+                    touch.clientY + (Math.random() - 0.5) * 30
+                );
+            }, i * 30);
+        }
+    }, { passive: true });
+}
+
+// ============================================
+// Click effect on title words
+// ============================================
+
+document.querySelectorAll('.word').forEach(word => {
+    word.addEventListener('click', () => {
+        const rect = word.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        
+        for (let i = 0; i < 15; i++) {
+            setTimeout(() => {
+                createSparkle(
+                    centerX + (Math.random() - 0.5) * rect.width,
+                    centerY + (Math.random() - 0.5) * rect.height
+                );
+            }, i * 20);
+        }
+    });
+});
+
+// ============================================
+// DESKTOP: Konami Code
+// ============================================
+
+const konamiCode = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
+let konamiIndex = 0;
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === konamiCode[konamiIndex]) {
+        konamiIndex++;
+        if (konamiIndex === konamiCode.length) {
+            activatePartyMode();
+            konamiIndex = 0;
+        }
+    } else {
+        konamiIndex = 0;
+    }
+});
+
+// ============================================
+// DESKTOP: Type "nothing" easter egg
+// ============================================
+
+const nothingLetters = ['n', 'o', 't', 'h', 'i', 'n', 'g'];
+let nothingProgress = 0;
+
+document.addEventListener('keydown', (e) => {
+    if (e.key.length === 1) {
+        const key = e.key.toLowerCase();
+        
+        if (key === nothingLetters[nothingProgress]) {
+            nothingProgress++;
+            showAnticipation(nothingProgress);
+            
+            if (nothingProgress === nothingLetters.length) {
+                revealTruth();
+                nothingProgress = 0;
+            }
+        } else {
+            if (nothingProgress > 0) {
+                hideAnticipation();
+            }
+            nothingProgress = 0;
+        }
+    }
+});
+
+// ============================================
+// Console Easter Egg
+// ============================================
+
+console.log('%c🤖 Nothing AI', 'font-size: 24px; font-weight: bold; background: linear-gradient(135deg, #00f5d4, #9b5de5); -webkit-background-clip: text; -webkit-text-fill-color: transparent;');
+console.log('%cDoes absolutely nothing. But does it with style. ✨', 'font-size: 14px; color: #888;');
+console.log('%c📱 Mobile? Try: Triple tap, Long press on "Nothing", or Shake!', 'font-size: 12px; color: #666;');
