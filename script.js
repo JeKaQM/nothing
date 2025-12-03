@@ -1,6 +1,35 @@
 // Detect mobile/touch device
 const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
+// Prevent zoom on double tap and pinch
+document.addEventListener('touchstart', (e) => {
+    if (e.touches.length > 1) {
+        e.preventDefault();
+    }
+}, { passive: false });
+
+let lastTouchEnd = 0;
+document.addEventListener('touchend', (e) => {
+    const now = Date.now();
+    if (now - lastTouchEnd <= 300) {
+        e.preventDefault();
+    }
+    lastTouchEnd = now;
+}, { passive: false });
+
+// Prevent pinch zoom
+document.addEventListener('gesturestart', (e) => {
+    e.preventDefault();
+}, { passive: false });
+
+document.addEventListener('gesturechange', (e) => {
+    e.preventDefault();
+}, { passive: false });
+
+document.addEventListener('gestureend', (e) => {
+    e.preventDefault();
+}, { passive: false });
+
 // Add some interactive sparkle effects on mouse move (desktop only)
 if (!isTouchDevice) {
     document.addEventListener('mousemove', (e) => {
@@ -10,18 +39,21 @@ if (!isTouchDevice) {
     });
 }
 
-// Touch sparkle effect for mobile
-document.addEventListener('touchstart', (e) => {
-    const touch = e.touches[0];
-    for (let i = 0; i < 5; i++) {
-        setTimeout(() => {
-            createSparkle(
-                touch.clientX + (Math.random() - 0.5) * 50,
-                touch.clientY + (Math.random() - 0.5) * 50
-            );
-        }, i * 50);
-    }
-}, { passive: true });
+// Touch sparkle effect for mobile (separate from zoom prevention)
+if (isTouchDevice) {
+    document.body.addEventListener('touchstart', (e) => {
+        if (e.target.closest('.word')) return; // Let word handler deal with it
+        const touch = e.touches[0];
+        for (let i = 0; i < 5; i++) {
+            setTimeout(() => {
+                createSparkle(
+                    touch.clientX + (Math.random() - 0.5) * 50,
+                    touch.clientY + (Math.random() - 0.5) * 50
+                );
+            }, i * 50);
+        }
+    }, { passive: true });
+}
 
 function createSparkle(x, y) {
     const sparkle = document.createElement('div');
