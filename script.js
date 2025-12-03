@@ -1,6 +1,11 @@
 // Detect mobile/touch device
 const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
+// Triple tap counter for easter egg (needs to be global for the zoom handler to access)
+let mobileTapCount = 0;
+let mobileTapTimeout;
+let mobileLastTap = 0;
+
 // Prevent ALL zoom behaviors on mobile
 if (isTouchDevice) {
     // Prevent zoom on multi-touch
@@ -11,15 +16,34 @@ if (isTouchDevice) {
         }
     }, { passive: false });
 
-    // Prevent double-tap zoom
-    let lastTouchEnd = 0;
+    // Prevent double-tap zoom BUT track triple taps for easter egg
     document.addEventListener('touchend', (e) => {
         const now = Date.now();
-        if (now - lastTouchEnd <= 300) {
-            e.preventDefault();
-            e.stopPropagation();
+        const timeSinceLastTap = now - mobileLastTap;
+        
+        // Track taps for triple-tap easter egg
+        if (timeSinceLastTap < 500) {
+            mobileTapCount++;
+            if (mobileTapCount >= 3) {
+                mobileTapCount = 0;
+                // Trigger party mode easter egg
+                if (typeof activatePartyMode === 'function') {
+                    activatePartyMode();
+                }
+            }
+        } else {
+            mobileTapCount = 1;
         }
-        lastTouchEnd = now;
+        
+        clearTimeout(mobileTapTimeout);
+        mobileTapTimeout = setTimeout(() => mobileTapCount = 0, 600);
+        
+        // Prevent double-tap zoom (but allow our triple tap)
+        if (timeSinceLastTap <= 300 && mobileTapCount < 3) {
+            e.preventDefault();
+        }
+        
+        mobileLastTap = now;
     }, { passive: false });
 
     // Prevent pinch zoom (iOS Safari)
@@ -128,35 +152,26 @@ document.querySelectorAll('.word').forEach(word => {
     });
 });
 
-// 🥚 Mobile Easter Egg: Triple tap anywhere triggers party mode
-let tapCount = 0;
-let tapTimeout;
-document.addEventListener('click', (e) => {
-    if (!isTouchDevice) return;
-    
-    tapCount++;
-    clearTimeout(tapTimeout);
-    
-    if (tapCount === 3) {
-        tapCount = 0;
-        activatePartyMode();
-    } else {
-        tapTimeout = setTimeout(() => tapCount = 0, 500);
-    }
-});
-
 // 🥚 Mobile Easter Egg: Long press on "Nothing" text triggers the reveal
 let longPressTimer;
+let longPressTriggered = false;
 const nothingWord = document.querySelector('.nothing');
-if (nothingWord) {
+if (nothingWord && isTouchDevice) {
     nothingWord.addEventListener('touchstart', (e) => {
+        longPressTriggered = false;
         longPressTimer = setTimeout(() => {
+            longPressTriggered = true;
             revealTruth();
-        }, 1500);
+            // Vibrate if available
+            if (navigator.vibrate) navigator.vibrate(50);
+        }, 1000); // Reduced to 1 second
     }, { passive: true });
     
-    nothingWord.addEventListener('touchend', () => {
+    nothingWord.addEventListener('touchend', (e) => {
         clearTimeout(longPressTimer);
+        if (longPressTriggered) {
+            e.preventDefault();
+        }
     });
     
     nothingWord.addEventListener('touchmove', () => {
