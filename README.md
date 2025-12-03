@@ -50,6 +50,8 @@ A beautifully over-engineered website that does absolutely nothing — a satiric
 
 ## 🕹️ Easter Eggs
 
+### 💻 Desktop
+
 <details>
 <summary><b>🎮 Konami Code</b></summary>
 <br>
@@ -72,6 +74,32 @@ Prepare for disappointment with extra steps.
 Open DevTools and check the console.
 <br><br>
 For developers who like their nothing with a side of nothing.
+</details>
+
+### 📱 Mobile
+
+<details>
+<summary><b>👆 Triple Tap</b></summary>
+<br>
+Tap anywhere on the screen 3 times quickly.
+<br><br>
+Party mode activated. Confetti included.
+</details>
+
+<details>
+<summary><b>👇 Long Press</b></summary>
+<br>
+Press and hold on "Nothing" for 1.5 seconds.
+<br><br>
+The dramatic reveal you've been waiting for.
+</details>
+
+<details>
+<summary><b>📳 Shake</b></summary>
+<br>
+Shake your phone 3 times.
+<br><br>
+Because why not? Still does nothing though.
 </details>
 
 <br>

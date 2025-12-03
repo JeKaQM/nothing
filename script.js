@@ -76,6 +76,70 @@ document.querySelectorAll('.word').forEach(word => {
     });
 });
 
+// 🥚 Mobile Easter Egg: Triple tap anywhere triggers party mode
+let tapCount = 0;
+let tapTimeout;
+document.addEventListener('click', (e) => {
+    if (!isTouchDevice) return;
+    
+    tapCount++;
+    clearTimeout(tapTimeout);
+    
+    if (tapCount === 3) {
+        tapCount = 0;
+        activatePartyMode();
+    } else {
+        tapTimeout = setTimeout(() => tapCount = 0, 500);
+    }
+});
+
+// 🥚 Mobile Easter Egg: Long press on "Nothing" text triggers the reveal
+let longPressTimer;
+const nothingWord = document.querySelector('.nothing');
+if (nothingWord) {
+    nothingWord.addEventListener('touchstart', (e) => {
+        longPressTimer = setTimeout(() => {
+            revealTruth();
+        }, 1500);
+    }, { passive: true });
+    
+    nothingWord.addEventListener('touchend', () => {
+        clearTimeout(longPressTimer);
+    });
+    
+    nothingWord.addEventListener('touchmove', () => {
+        clearTimeout(longPressTimer);
+    });
+}
+
+// 🥚 Mobile Easter Egg: Shake device to trigger party mode
+if (window.DeviceMotionEvent && isTouchDevice) {
+    let lastShake = 0;
+    let shakeCount = 0;
+    
+    window.addEventListener('devicemotion', (e) => {
+        const acceleration = e.accelerationIncludingGravity;
+        if (!acceleration) return;
+        
+        const totalAcceleration = Math.abs(acceleration.x) + Math.abs(acceleration.y) + Math.abs(acceleration.z);
+        
+        if (totalAcceleration > 30) {
+            const now = Date.now();
+            if (now - lastShake > 300) {
+                shakeCount++;
+                lastShake = now;
+                
+                if (shakeCount >= 3) {
+                    shakeCount = 0;
+                    activatePartyMode();
+                }
+                
+                setTimeout(() => shakeCount = 0, 2000);
+            }
+        }
+    });
+}
+
 // Console easter egg
 console.log('%c🤖 Nothing AI', 'font-size: 24px; font-weight: bold; background: linear-gradient(135deg, #00f5d4, #9b5de5); -webkit-background-clip: text; -webkit-text-fill-color: transparent;');
 console.log('%cDoes absolutely nothing. But does it with style. ✨', 'font-size: 14px; color: #888;');
