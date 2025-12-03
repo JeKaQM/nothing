@@ -1,34 +1,54 @@
 // Detect mobile/touch device
 const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
-// Prevent zoom on double tap and pinch
-document.addEventListener('touchstart', (e) => {
-    if (e.touches.length > 1) {
-        e.preventDefault();
-    }
-}, { passive: false });
+// Prevent ALL zoom behaviors on mobile
+if (isTouchDevice) {
+    // Prevent zoom on multi-touch
+    document.addEventListener('touchstart', (e) => {
+        if (e.touches.length > 1) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+    }, { passive: false });
 
-let lastTouchEnd = 0;
-document.addEventListener('touchend', (e) => {
-    const now = Date.now();
-    if (now - lastTouchEnd <= 300) {
-        e.preventDefault();
-    }
-    lastTouchEnd = now;
-}, { passive: false });
+    // Prevent double-tap zoom
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', (e) => {
+        const now = Date.now();
+        if (now - lastTouchEnd <= 300) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        lastTouchEnd = now;
+    }, { passive: false });
 
-// Prevent pinch zoom
-document.addEventListener('gesturestart', (e) => {
-    e.preventDefault();
-}, { passive: false });
+    // Prevent pinch zoom (iOS Safari)
+    document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
+    document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
+    document.addEventListener('gestureend', (e) => e.preventDefault(), { passive: false });
 
-document.addEventListener('gesturechange', (e) => {
-    e.preventDefault();
-}, { passive: false });
+    // Prevent touchmove zoom
+    document.addEventListener('touchmove', (e) => {
+        if (e.touches.length > 1) {
+            e.preventDefault();
+        }
+    }, { passive: false });
 
-document.addEventListener('gestureend', (e) => {
-    e.preventDefault();
-}, { passive: false });
+    // Reset any accidental zoom on orientation change or resize
+    window.addEventListener('resize', () => {
+        document.body.style.zoom = 1;
+    });
+
+    // Force viewport reset
+    const resetViewport = () => {
+        const viewport = document.querySelector('meta[name="viewport"]');
+        if (viewport) {
+            viewport.content = 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+        }
+    };
+    resetViewport();
+    window.addEventListener('orientationchange', resetViewport);
+}
 
 // Add some interactive sparkle effects on mouse move (desktop only)
 if (!isTouchDevice) {
